@@ -1,0 +1,23 @@
+CONTRIBUTING
+------------
+
+# install Dist::Zilla
+$ cpanm Dist::Zilla
+
+# clone the repo
+$ git clone https://github.com/book/Devel-TraceUse.git
+$ cd Devel-TraceUse
+
+# install author dependencies if you want to build the package and run the tests:
+$ dzil listdeps --author --missing | cpanm
+$ dzil authordeps --missing | cpanm
+
+# install usage dependencies
+$ dzil listdeps | cpanm
+
+# run tests against built code:
+$ dzil test
+
+# create a bundle of built code:
+$ dzil build
+# creates Devel-Trace-2.096 and Devel-Trace-2.096.tar.gz
