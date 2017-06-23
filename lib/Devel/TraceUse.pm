@@ -25,6 +25,7 @@ my $output_fh;   # optional write filehandle where results will be output
 
 # Hide core modules (for the specified version)?
 my $hide_core = 0;
+my $sorted_simple = 0;
 
 sub import {
     my $class = shift;
@@ -38,6 +39,8 @@ sub import {
             $hide_core = numify( $1 ? $1 : $] );
         } elsif (/^output:(.*)$/) {
             open $output_fh, '>', $1 or die "can't open $1: $!";
+        } elsif (/^sorted_simple/) {
+            $sorted_simple = 1;
         } else {
             die "Unknown argument to $class: $_\n";
         }
@@ -124,18 +127,27 @@ sub show_trace_visitor
     my ( $mod, $pos, $output_cb, @args ) = @_;
 
     my $caller = $mod->{caller};
-    my $message = sprintf( '%4s.', $mod->{rank} ) . '  ' x $pos;
-    $message .= "$mod->{module}";
-    my $version = ${"$mod->{module}\::VERSION"};
-    $message .= defined $version ? " $version," : ',';
-    $message .= " $caller->{filename}"
-        if defined $caller->{filename};
-    $message .= " line $caller->{line}"
-        if defined $caller->{line};
-    $message .= " $mod->{eval}"
-        if $mod->{eval};
-    $message .= " [$caller->{package}]"
-        if $caller->{package} ne $caller->{filepackage};
+    my $message;
+
+    if ($sorted_simple) {
+        $message = "$mod->{module}";
+        my $version = ${"$mod->{module}\::VERSION"};
+        $message .= defined $version ? " $version" : '';
+    } else {
+        $message = sprintf( '%4s.', $mod->{rank} ) . '  ' x $pos;
+        $message .= "$mod->{module}";
+        my $version = ${"$mod->{module}\::VERSION"};
+        $message .= defined $version ? " $version," : ',';
+        $message .= " $caller->{filename}"
+            if defined $caller->{filename};
+        $message .= " line $caller->{line}"
+            if defined $caller->{line};
+        $message .= " $mod->{eval}"
+            if $mod->{eval};
+        $message .= " [$caller->{package}]"
+            if $caller->{package} ne $caller->{filepackage};
+    }
+
     $message .= " (FAILED)"
         if !exists $INC{$mod->{filename}};
 
@@ -224,17 +236,33 @@ sub dump_result
             if !exists $Module::CoreList::version{$hide_core};
     }
 
-    my $output = defined $output_fh
-           ? sub { print $output_fh "$_[0]\n" }
-           : sub { warn "$_[0]\n" };
+    my $output;
+    my @sorted_output;
+    if ($sorted_simple) {
+        $output = sub { push @sorted_output, $_[0]};
+    } else {
+        $output = defined $output_fh
+            ? sub { print $output_fh "$_[0]\n" }
+            : sub { warn "$_[0]\n" };
+    }
 
     # output the diagnostic
-    $output->("Modules used from $root:");
+    $output->("Modules used from $root:") unless $sorted_simple;
     visit_trace( \&show_trace_visitor, $root, 0, $output );
 
     # anything left?
     if (%loaded) {
         visit_trace( \&show_trace_visitor, $_, 0, $output ) for sort keys %loaded;
+    }
+
+    if ($sorted_simple) {
+        @sorted_output = sort @sorted_output;
+        unshift @sorted_output, "Modules used from $root:";
+        if ($output_fh) {
+            print $output_fh join("\n", @sorted_output) . "\n";
+        } else {
+            warn join("\n", @sorted_output) . "\n";
+        }
     }
 
     # did we miss some modules?

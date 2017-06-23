@@ -148,7 +148,15 @@ Modules used from -e:
    3.      M3, M2.pm line 3
 -e syntax OK
 OUT
+# sorted_simple-relatest tests
+    [ << 'OUT', qw(-d:TraceUse=sorted_simple -MParent -e1) ],
+Modules used from -e:
+Child
+Parent
+Sibling
+OUT
 );
+
 
 # Module::CoreList-related tests
 if ( eval { require Module::CoreList; 1; } ) {
